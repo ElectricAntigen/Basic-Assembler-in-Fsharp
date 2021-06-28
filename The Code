@@ -1,0 +1,103 @@
+module VirtualMachine
+open System.Collections.Generic
+
+type Register =
+    | AX
+    | BX 
+    | CX
+    | DX
+
+type Memory = 
+    {   Bytes: int[]
+    }
+
+type Processor = 
+    {   Registers: IDictionary<Register, int>
+    }
+
+type Pointer = PTR of uint
+
+let Null = PTR(0u)
+
+type Mov =
+    | MOV1 of register: Register * value: int
+    | MOV2 of register1: Register * register2: Register
+    | MOV3 of register: Register * pointer: Pointer
+    | MOV4 of pointer: Pointer * register: Register
+
+type Label = Label of uint
+
+type Command =
+    | NOP
+    | MOV of Mov
+    | ADD of register1: Register * register2: Register
+    | SUB of register1: Register * register2: Register
+    | MUL of register1: Register * register2: Register
+    | DIV of register1: Register * register2: Register
+    | MOD of register1: Register * register2: Register
+    | INC of register: Register
+    | DEC of register: Register
+    | JMP of label: Label
+
+type Program = Command[]
+
+let proc (processor: Processor) (memory: Memory) (program: Program) = 
+    let mathFunc r1 r2 (f: int -> int -> int) = 
+        processor.Registers.[r1] <- f processor.Registers.[r1] processor.Registers.[r2]
+    let mutable i = 0
+    while i < program.Length do
+        let command = program.[i]
+        match command with
+            | NOP -> ()
+            | MOV(MOV1(r,v)) -> processor.Registers.[r] <- v
+            | MOV(MOV2(r1,r2)) -> processor.Registers.[r1] <- processor.Registers.[r2]
+            | MOV(MOV3(r,PTR p)) -> processor.Registers.[r] <- memory.Bytes.[int (p)]
+            | MOV(MOV4(PTR p,r)) -> memory.Bytes.[int (p)] <- processor.Registers.[r]
+            | ADD(r1,r2) -> mathFunc r1 r2 (+)
+            | SUB(r1,r2) -> mathFunc r1 r2 (-)
+            | MUL(r1,r2) -> mathFunc r1 r2 (*)
+            | DIV(r1,r2) -> mathFunc r1 r2 (/)
+            | MOD(r1,r2) -> mathFunc r1 r2 (%)
+            | INC(r) -> processor.Registers.[r] <- processor.Registers.[r] + 1
+            | DEC(r) -> processor.Registers.[r] <- processor.Registers.[r] - 1
+            | JMP(Label l) -> i <- int l - 1
+        i <- i + 1
+
+
+let arr = [|
+    NOP
+    MOV(MOV1(AX,5))
+    MOV(MOV4(PTR 0u,AX))
+    
+    MOV(MOV1(BX,6))
+    MOV(MOV4(PTR 1u,BX))
+
+    MOV(MOV1(CX,7))
+    MOV(MOV4(PTR 2u,CX))
+
+    ADD(BX,CX)
+
+    MOV(MOV4(PTR 3u,BX))
+
+    MOV(MOV1(DX,1))
+    MOV(MOV4(PTR 4u,DX))
+
+    MOV(MOV1(DX,2))
+    MOV(MOV4(PTR 5u,DX))
+
+    MOV(MOV1(DX,3))
+    MOV(MOV4(PTR 6u,DX))
+
+    MOV(MOV1(DX,4))
+    MOV(MOV4(PTR 7u,DX))
+|]
+
+let procDict: Processor = { Registers = Dictionary(dict [(AX, 0); (BX, 0); (CX, 0)])}
+            
+let memArray: Memory = { Bytes = Array.zeroCreate 800 }
+
+proc procDict memArray arr
+
+printfn "Processor: %A" procDict
+
+printfn "Memory: %A" memArray
